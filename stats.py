@@ -19,6 +19,7 @@ class ScoreStats:
             .facet_by('host', limit=20)\
             .facet_by('visitor', limit=20)\
             .facet_by('winner', limit=20, mincount=1)\
+            .paginate(rows=0)\
             .execute()\
             .facet_counts.facet_fields
 
@@ -37,14 +38,56 @@ class ScoreStats:
         return sorted(win_ratio, key=lambda x: x[1], reverse=True)
 
     def get_best_attacks(self):
-        """ Returns best attacks desc
+        """ Returns best attacks [# of goals scored DESC]
 
             Returns:
-                list of tuples (team, # of goals)
+                list of tuples (team, # of goals scored)
         """
-        # count(host == winner)
-        self.si.query(self.q).field_limit('scorehost').facet_by('host', limit=20)
-        # count(visitor == winner)
+        games = self.si.query(self.q)\
+            .field_limit([
+                'host', 'visitor',
+                'scorehost', 'scorevisitor'
+            ])\
+            .paginate(rows=1000)\
+            .execute()
+
+        goals = {}
+        for game in games:
+            host = game['host']
+            visitor = game['visitor']
+            scorehost = game['scorehost']
+            scorevisitor = game['scorevisitor']
+            
+            goals[host] = goals[host] + scorehost if host in goals else scorehost
+            goals[visitor] = goals[visitor] + scorevisitor if visitor in goals else scorevisitor
+
+        return sorted(goals.items(), key=lambda x: x[1], reverse=True)
+
+    def get_best_defences(self):
+        """ Returns best defences [# of goals conceded ASC]
+
+            Returns:
+                list of tuples (team, # of goals conceded)
+        """
+        games = self.si.query(self.q)\
+            .field_limit([
+                'host', 'visitor',
+                'scorehost', 'scorevisitor'
+            ])\
+            .paginate(rows=1000)\
+            .execute()
+
+        goals = {}
+        for game in games:
+            host = game['host']
+            visitor = game['visitor']
+            scorehost = game['scorehost']
+            scorevisitor = game['scorevisitor']
+            
+            goals[host] = goals[host] + scorevisitor if host in goals else scorevisitor
+            goals[visitor] = goals[visitor] + scorehost if visitor in goals else scorehost
+
+        return sorted(goals.items(), key=lambda x: x[1])
 
     def get_goal_scorers(self):
         """ Returns best goalscorers DESC
@@ -61,6 +104,7 @@ class ScoreStats:
                 'goaltimeshost', 'goaltimesvisitor',
                 'ogtimeshost', 'ogtimesvisitor'
             ])\
+            .paginate(rows=1000)\
             .execute()
 
         # count # of goals scored/player (og not counted)
