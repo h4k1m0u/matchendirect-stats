@@ -14,12 +14,11 @@ class ScoreView(QWidget):
         self.layout = QVBoxLayout()
         stat = ScoreStats()
 
-        # get count of games won/team
+        # get win-ration of each team
         win_ratios = stat.get_win_ratio()
-        print '\n\n', win_ratios
-        # for team, win_ratio in win_ratios:
-        #     label = QLabel('%s(%d)' % (team, win_ratio), self)
-        #     self.layout.addWidget(label)
+        for team, win_ratio in win_ratios:
+            label = QLabel('%s(%d)' % (team, win_ratio), self)
+            self.layout.addWidget(label)
 
         self.setLayout(self.layout)
         

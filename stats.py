@@ -9,12 +9,13 @@ class ScoreStats:
 
     def get_win_ratio(self):
         """ Returns win-ratio of each team DESC
-            Win-ratio = # of games won / (# of games played as host + # of games played as visitor)
+            Win-ratio = # of games won / (# of games played as host + # of games played as visitor) * 100
 
             Returns:
                 list of tuples (team, win-rate)
         """
-        facets = self.si.query(self.q).field_limit('id')\
+        facets = self.si.query(self.q)\
+            .field_limit('id')\
             .facet_by('host', limit=20)\
             .facet_by('visitor', limit=20)\
             .facet_by('winner', limit=20, mincount=1)\
@@ -42,14 +43,45 @@ class ScoreStats:
                 list of tuples (team, # of goals)
         """
         # count(host == winner)
-        self.si.query().field_limit('scorehost').facet_by('host', limit=20)
+        self.si.query(self.q).field_limit('scorehost').facet_by('host', limit=20)
         # count(visitor == winner)
 
     def get_goal_scorers(self):
-        """ Returns # of goals scored/player desc
+        """ Returns best goalscorers DESC
+            Notes: 
+                - A player can score multiple times/games(doc) => Cannot use facets  
+                - Own goals are not counted
 
             Returns:
-                list of tuples (goalscorer, # of goals)
+                list of tuples (goalscorer, # of goals scored)
         """
-        # # of occurences, not # of docs
-        pass
+        games = self.si.query(self.q)\
+            .field_limit([
+                'goalscorershost', 'goalscorersvisitor',
+                'goaltimeshost', 'goaltimesvisitor',
+                'ogtimeshost', 'ogtimesvisitor'
+            ])\
+            .execute()
+
+        # count # of goals scored/player (og not counted)
+        goalscorers = {}
+        for game in games:
+            goalscorershost = game.get('goalscorershost', ())
+            goaltimeshost = game.get('goaltimeshost', ())
+            ogtimeshost = game.get('ogtimeshost', ())
+
+            for index, goalscorerhost in enumerate(goalscorershost):
+                goaltimehost = goaltimeshost[index]    
+                if not goaltimehost in ogtimeshost:
+                    goalscorers[goalscorerhost] = goalscorers[goalscorerhost] + 1 if goalscorerhost in goalscorers else 1
+
+            goalscorersvisitor = game.get('goalscorersvisitor', ())
+            goaltimesvisitor = game.get('goaltimesvisitor', ())
+            ogtimesvisitor = game.get('ogtimesvisitor', ())
+
+            for index, goalscorervisitor in enumerate(goalscorersvisitor):
+                goaltimevisitor = goaltimesvisitor[index]    
+                if not goaltimevisitor in ogtimesvisitor:
+                    goalscorers[goalscorervisitor] = goalscorers[goalscorervisitor] + 1 if goalscorervisitor in goalscorers else 1
+
+        return sorted(goalscorers.items(), key=lambda x: x[1], reverse=True)
