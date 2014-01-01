@@ -7,6 +7,70 @@ class ScoreStats:
         self.si = SolrInterface('http://localhost:8080/solr')
         self.q = self.si.Q(country='Angleterre') & self.si.Q(league='Premier League')
 
+    def get_countries(self):
+        """ Returns # of games/country DESC
+
+            Returns:
+                list of tuples (country, # of games)
+        """
+        facets = self.si.query()\
+            .field_limit('id')\
+            .facet_by('country', limit=20, mincount=1)\
+            .paginate(rows=0)\
+            .execute()\
+            .facet_counts.facet_fields
+        countries = facets['country']
+
+        return countries
+
+    def get_leagues(self, country):
+        """ Returns # of games/league in the given country DESC
+
+            Args:
+                country (str): Country to search in, for leagues
+            Returns:
+                list of tuples (league, # of games)
+        """
+        facets = self.si.query(country=country)\
+            .field_limit('id')\
+            .facet_by('league', limit=20, mincount=1)\
+            .paginate(rows=0)\
+            .execute()\
+            .facet_counts.facet_fields
+        leagues = facets['league']
+
+        return leagues
+
+    def get_teams(self, country, league):
+        """ Returns # of teams/league in the given country DESC
+            Note: country argument is used to avoid confusion between 
+            multiple leagues having the same name in multiple contries
+
+            Args:
+                country (str): Country to search in, for teams
+                league (str): League to search in, for teams
+            Returns:
+                list of tuples (team, # of games)
+        """
+        facets = self.si.query(self.si.Q(country=country) & self.si.Q(league=league))\
+            .field_limit('id')\
+            .facet_by('host', limit=20, mincount=1)\
+            .facet_by('visitor', limit=20, mincount=1)\
+            .paginate(rows=0)\
+            .execute()\
+            .facet_counts.facet_fields
+        hosts = dict(facets['host'])
+        visitors = dict(facets['visitor'])
+
+        teams = {}
+        for team in hosts:
+            teams[team] = hosts[team]
+
+        for team in visitors:
+            teams[team] = teams[team] + visitors[team] if team in teams else visitors[team]
+
+        return sorted(teams.items(), key=lambda x: x[1], reverse=True)
+
     def get_win_ratio(self):
         """ Returns win-ratio of each team DESC
             Win-ratio = # of games won / (# of games played as host + # of games played as visitor) * 100
