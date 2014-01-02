@@ -71,7 +71,7 @@ class ScoreStats:
 
         return sorted(teams.items(), key=lambda x: x[1], reverse=True)
 
-    def get_win_ratio(self):
+    def get_win_ratios(self):
         """ Returns win-ratio of each team DESC
             Win-ratio = # of games won / (# of games played as host + # of games played as visitor) * 100
 
